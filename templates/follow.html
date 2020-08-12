@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>人车跟随程序</title>
+    <script src="{{ static_url('js/jquery.min.js')     }}"></script>
+    <link rel="stylesheet" href="{{ static_url('css/materialize.min.css') }}">
+    <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="{{ static_url('js/materialize.min.js') }}"></script>
+    <script src="{{ static_url('js/echarts.min.js')     }}"></script>
+</head>
+
+<body>
+    <nav>
+        <div class="nav-wrapper">
+          <a href="#!" class="brand-logo center">人车跟随面板@NEUQ</a>
+          <ul id="nav-mobile" class="left hide-on-med-and-down">
+            <li><a href="/">智能交通</a></li>
+            <li><a href="/mode2">人车跟随（手动）</a></li>
+            <li><a href="#">人车跟随</a></li>
+          </ul>
+          <!-- <ul class="right hide-on-med-and-down">
+            <li><a href="#">当前模式：2</a></li>
+          </ul> -->
+        </div>
+        
+      </nav>
+
+    <div class="container">
+        <div class="card" style="padding: 16px;">
+
+            <a id="startup"  {% if isRunning == True %} disabled {% end %} class="btn" href="javascript:void(0);" onclick="startFunction()" hidden>
+                启动程序
+            </a>
+            <a id="down" {% if isRunning == False %} disabled {% end %} class="btn" href="javascript:void(0);" onclick="stopFunction()" hidden>
+                关闭程序
+            </a>
+            <span id="status">
+                {% if isRunning == True %}
+                    程序正在运行
+                {% else %}
+                    程序未运行
+                {% end %}
+            </span>
+            <div class="row m12" style="padding: 16px;">
+                <a class="btn" id="reverse" href="javascript:void(0);" onclick="send_reverse()">
+                    倒车入库(reverse_car)
+                </a>
+            </div>
+            
+        </div>
+        <div class="card" style="padding: 16px;">
+            <div style="width: 100%;" class="center">
+                <h5>PID 控制面板</h5>
+            </div> 
+            <form class="col m12" method="POST">
+                <div class="row">
+                    <div class="input-field col m4">
+                        <input name="p0" id="p0" type="number" step="0.001" class="validate" required value="{{ control_data[0] }}">
+                        <label for="p0">P</label>
+                    </div>
+                    <div class="input-field col m4">
+                        
+                        <input name="p1" id="p1" type="number" step="0.001" class="validate" required value="{{ control_data[1] }}">
+                        <label for="p1">I</label>
+                    </div>
+                    <div class="input-field col m4">
+                        
+                        <input id="p2" name="p2" type="number" step="0.001" class="validate" required value="{{ control_data[2] }}">
+                        <label for="p2">D</label>  
+                    </div>
+                </div>
+                <div style="direction:rtl; padding-right: 16px;">
+                    <a class="btn" href="javascript:void(0);" onclick="sendPID()" id="params_submit">提交</a>
+                </div>
+            </form> 
+            <div id="chart" style="width: 100%;height: 600px;"></div>
+        </div>
+
+        <div class="card" style="padding: 16px;">
+            
+        </div>
+
+    </div>
+
+</body>
+
+
+<script type="text/javascript">
+let ws = new WebSocket(`ws://${document.location.host}/rt/follow_data`);
+let x_data = {{ x_data }};
+let y_xdata = {{ y_xdata }};
+let y_ydata = {{ y_ydata }};
+let last_time = 0;
+
+let interval_id = -1;
+
+/// 发送PID数值
+function sendPID(){
+    console.log("sending PID");
+    $.ajax({
+        url: `${document.location.href}`,
+        type: "POST",
+        async: true,
+        dataType: "json",
+        contentType: "application/json",
+        data: JSON.stringify(
+            {
+                "p0":$("#p0").val(),
+                "p1":$("#p1").val(),
+                "p2":$("#p2").val()
+            }
+        ),
+        success: function(data){
+            console.log(data);
+            if (data["msg"] === "ok"){
+                alert("已发送PID数值");
+            } else {
+                alert(data["msg"]);
+            }
+        }
+    }
+    )
+}
+
+/// 倒车入库function
+function send_reverse(){
+    $.ajax(
+        {
+            url: `http://${window.location.host}/reverse`,
+            type: "POST",
+            async: true,
+            dataType: "json",
+            contentType: "application/json",
+            data: JSON.stringify(
+                {
+                    "p0":$("#p0").val(),
+                    "p1":$("#p1").val(),
+                    "p2":$("#p2").val()
+                }
+            ),
+            success: function(data){
+                console.log(data);
+                if (data["msg"] === "ok"){
+                    alert("已发送倒车请求");
+                } else {
+                    alert(data["msg"]);
+                }
+            }
+        }
+    );
+}
+
+
+function initWebSocket() {
+    if (ws.CLOSED){
+        ws = new WebSocket(`ws://${document.location.host}/rt/follow_data`);
+    }
+    ws.onopen = function(){
+        $("#startup").attr("disabled",false)
+        $("#status").text("后端连接成功");
+        console.log("connect success");
+    }
+    ws.onmessage = function (event) {
+        console.log(event.data);
+        var data = JSON.parse(event.data);
+        // if (data["time"] == last_time) {
+        //     return;
+        // }
+        if (data["x"] == 0.0 && data["y"] == 0.0){
+            return;
+        }
+        if (y_xdata.length == 200){
+            x_data.shift();
+            y_xdata.shift();
+            y_ydata.shift();
+            // stopFunction();
+        }
+        x_data.push((new Date()).getTime());
+        y_xdata.push(Number(data["x"]));
+        y_ydata.push(Number(data["y"]));
+        last_time = data["time"];
+        initChart();
+        console.log("update");
+    }
+    ws.onclose = function(){
+        console.log("close");
+    }
+    ws.onerror = function (event) {
+        console.log(event.data);
+    }
+}
+
+function startFunction() {
+    console.log("start");
+    $("#startup").attr("disabled",true)
+    $("#down").attr("disabled",false)
+    interval_id = setInterval(() => {
+        ws.send("q");
+    }, 20);
+}
+
+function stopFunction(){
+    ws.send("exit");
+    if (interval_id != -1){
+        clearInterval(interval_id);
+        $("#startup").attr("disabled",false)
+        $("#down").attr("disabled",true)
+    }
+}
+
+function initChart() {
+    // button
+    var chart =  echarts.init(document.getElementById("chart",'dark'))
+    myOption = {
+            color : [ '#6a7985' ],
+            //标题样式
+            title : {
+                text : "XY-Timestamp Graph",
+                textStyle : {
+                    color : 'black',
+                },
+                left : 'center'
+            },
+            //提示框
+            tooltip : {
+                trigger : 'axis',
+                position : 'top',
+                axisPointer : {
+                    type : 'cross',
+                    label : {
+                        backgroundColor : '#6a7985'
+                    }
+                }
+            },
+            //图形位置
+            grid : {
+                left : '4%',
+                right : '6%',
+                bottom : '4%',
+                top : 80,
+                containLabel : true
+            },
+            //x轴
+            xAxis : [ {
+                type : 'category',
+                //坐标轴两边留白策略，即x轴坐标点开始与结束点位置都不在最边缘
+                boundaryGap : true,
+                axisLine : {
+                    show : true,
+                    //x轴线样式
+                    lineStyle : {
+                        color : '#17273B',
+                        width : 1,
+                        type : 'solid'
+                    }
+                },
+                //x轴字体设置
+                axisLabel : {
+                    show : true,
+                    fontSize : 12,
+                    color : 'black'
+                },
+                data : x_data
+            } ],
+            //y轴
+            yAxis : [ {
+                type : 'value',
+                //y轴字体设置
+                axisLabel : {
+                    show : true,
+                    color : 'black',
+                    fontSize : 12
+                },
+                //y轴线设置不显示
+                axisLine : {
+                    show : true
+                },
+                //与x轴平行的线样式
+                splitLine : {
+                    show : true,
+                    lineStyle : {
+                        color : '#17273B',
+                        width : 1,
+                        type : 'solid',
+                    }
+                }
+            } ],
+            series : [ {
+                name : "X",
+                type : 'line',
+                //折线平滑
+                smooth : true,
+                symbol : 'circle',
+                symbolSize : 6,
+                //线条样式
+                lineStyle : {
+                    color : {
+                        type : 'linear',
+                        x : 0,
+                        y : 0,
+                        x2 : 0,
+                        y2 : 1,
+                        colorStops : [ {
+                            offset : 0,
+                            // 0% 处的颜色
+                            color : '#6ae6dd'
+                        }, {
+                            offset : 1,
+                            // 100% 处的颜色
+                            color : 'red'
+                        } ],
+                        globalCoord : false
+                    },
+                    width : 2,
+                    type : 'solid',
+                },
+                //折线连接点样式
+                itemStyle : {
+                    color : '#00E5DE'
+                },
+                //折线堆积区域样式
+                areaStyle : {
+                    color : '#004c5E'
+                },
+                data : y_xdata
+            } ,
+            {
+                name : "Y",
+                type : 'line',
+                //折线平滑
+                smooth : true,
+                symbol : 'circle',
+                symbolSize : 6,
+                //线条样式
+                lineStyle : {
+                    color : {
+                        type : 'linear',
+                        x : 0,
+                        y : 0,
+                        x2 : 0,
+                        y2 : 1,
+                        colorStops : [ {
+                            offset : 0,
+                            // 0% 处的颜色
+                            color : '#0aa9cd'
+                        }, {
+                            offset : 1,
+                            // 100% 处的颜色
+                            color : 'orange'
+                        } ],
+                        globalCoord : false
+                    },
+                    width : 2,
+                    type : 'solid',
+                },
+                //折线连接点样式
+                itemStyle : {
+                    color : '#00E5DE'
+                },
+                //折线堆积区域样式
+                areaStyle : {
+                    color : '#004c5E'
+                },
+                data : y_ydata
+            }]
+        };
+    // var option = {
+    //         color : [ '#6a7985' ],
+    //         tooltip: {},
+    //         legend: {
+    //             data:['PID']
+    //         },
+    //         xAxis: {
+    //             name: "times",
+    //             type: 'value',
+    //             data: x_arr
+    //         },
+    //         yAxis: {
+    //             type: 'value',
+    //             name: 'PID'
+    //         },
+    //         series: [{
+    //             name: 'TOTAL',
+    //             type: 'line',
+    //             smooth: 0.2,
+    //             data:  y_data 
+    //         }]
+    //     };
+ 
+    chart.setOption(myOption);
+}
+
+$(document).ready(function(){
+    initWebSocket();
+    initChart();
+})
+   
+</script>
+
+
+</html>

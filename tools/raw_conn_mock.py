@@ -17,3 +17,9 @@ def send(data):
 def revertDirection():
     print("direct")
     pass
+
+def send_pid_follow(x_args):
+    return []
+
+def send_mode2(x_args):
+    return []

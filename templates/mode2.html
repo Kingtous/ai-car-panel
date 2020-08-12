@@ -15,47 +15,61 @@
         <div class="nav-wrapper">
           <a href="#!" class="brand-logo center">小车控制面板</a>
           <ul id="nav-mobile" class="left hide-on-med-and-down">
-            <li><a href="#">智能交通</a></li>
-            <li><a href="/mode2">人车跟随（手动）</a></li>
+            <li><a href="/">智能交通</a></li>
+            <li><a href="#">人车跟随（手动）</a></li>
             <li><a href="/follow">人车跟随</a></li>
           </ul>
           <ul class="right hide-on-med-and-down">
-            <li><a href="#">当前模式：1</a></li>
+            <li><a href="#">当前模式：2</a></li>
           </ul>
-
         </div>
+        
       </nav>
 
     <div class="container">
         <div class="card" style="padding: 16px;">
             <div style="width: 100%;" class="center">
-                <h5>PID 控制面板</h5>
+                <h5>参数设置</h5>
             </div> 
             <form class="col m12" method="POST">
-                <div class="row">
-                    <div class="input-field col m3">
+                <div class="row" style="margin: 0 0;">
+                    <div class="row m12">
+
+                        <div class="input-field col m4 push-m2">
                         
-                        <input name="p1" id="p1" type="number" class="validate" required value="{{ control_data[0] }}">
-                        <label for="p1">速度</label>
+                            <input name="p0" id="p0" type="number" class="validate" required value="{{ control_data[0] }}">
+                            <label for="p0">axis-x</label>
+                        </div>
+                        
+                        <div class="input-field col m4 push-m2">
+                            
+                            <input name="p1" id="p1" type="number" class="validate" required value="{{ control_data[1] }}">
+                            <label for="p1">axis-y</label>
+                        </div>
                     </div>
-                    <div class="input-field col m3">
+                    <div class="row m12">
+
+                        <div class="input-field col m2 push-m3">
                      
-                        <input name="p2" id="p2" type="number" step="0.001" class="validate" required value="{{ control_data[1] }}">
-                        <label for="p2">P</label>
+                            <input name="p2" id="p2" type="number" step="0.001" class="validate" required value="{{ control_data[2] }}">
+                            <label for="p2">P</label>
+                        </div>
+                        <div class="input-field col m2 push-m3">
+                            
+                            <input name="p3" id="p3" type="number" step="0.001" class="validate" required value="{{ control_data[3] }}">
+                            <label for="p3">I</label>
+                        </div>
+                        <div class="input-field col m2 push-m3">
+                            
+                            <input id="p4" name="p4" type="number" step="0.001" class="validate" required value="{{ control_data[4] }}">
+                            <label for="p4">D</label>  
+                        </div>
                     </div>
-                    <div class="input-field col m3">
-                        
-                        <input name="p3" id="p3" type="number" step="0.001" class="validate" required value="{{ control_data[2] }}">
-                        <label for="p3">I</label>
-                    </div>
-                    <div class="input-field col m3">
-                        
-                        <input id="p4" name="p4" type="number" step="0.001" class="validate" required value="{{ control_data[3] }}">
-                        <label for="p4">D</label>  
-                    </div>
+                    
                 </div>
                 <div style="direction:rtl; padding-right: 16px;">
-                    <input name="submit" type="submit" class="btn" id="params_submit" value="提交"></div>
+                    <input name="submit" type="submit" class="btn" id="params_submit" value="开始"></div>
+                    {{ msg }}
                 </div>
             </form> 
 
@@ -65,17 +79,16 @@
                 </div> 
                 <div class="row">
                     <div class="col">
-                        <a href="javascript:void(0);" class="btn" onclick='revertDirection();return false;'>
-                            转向180°
+                        <a href="javascript:void(0);" class="btn" onclick='return false;'>
+                            待定
                         </a>
                     </div>
                 </div>
-    
             </div>
 
-            <div class="card" style="padding: 16px;">
+            <div class="card"  style="padding: 16px; visibility: hidden;">
                 <div style="width: 100%;" class="center">
-                    <h5>PID曲线图</h5>
+                    <h5>待用图</h5>
                 </div> 
                 <div style="width: 100%;">
                     <div id="chart" style="width: 100%;height:600px;"></div>
@@ -103,6 +116,7 @@
 
 <script type="text/javascript">
 $(document).ready(function(){
+
     // button
     $("params_submit").click(function() {
         alert("!")

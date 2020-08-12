@@ -78,6 +78,27 @@ def send(data):
 def revertDirection():
     lib.send_cmd(5,1500)
 
+def send_mode2(x_args):
+    # driver: 0：x坐标， 4：y坐标，1：P参数， 2：I参数 ，3：D参数
+    # web: p0：x坐标， p1：y坐标，p2：P参数， p3：I参数 ，p4：D参数
+    lib.send_cmd(0,x_args[0]) # x
+    lib.send_cmd(4,x_args[1]) # y
+    lib.send_cmd(1,int(x_args[2])*1000) # p
+    lib.send_cmd(2,int(x_args[3])*1000) # i
+    lib.send_cmd(3,int(x_args[4])*1000) # d
+    # return 待用
+    return []
+
+# 只需要送PID
+def send_pid_follow(x_args):
+    # driver: 0：x坐标， 4：y坐标，1：P参数， 2：I参数 ，3：D参数
+    # web: p0：x坐标， p1：y坐标，p2：P参数， p3：I参数 ，p4：D参数
+    lib.send_cmd(1,int(x_args[0])*1000) # p
+    lib.send_cmd(2,int(x_args[0])*1000) # i
+    lib.send_cmd(3,int(x_args[1])*1000) # d
+    # return 待用
+    return []
+
 if __name__ == "__main__":
     while True:
         try:
